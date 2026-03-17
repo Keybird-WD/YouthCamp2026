@@ -413,6 +413,7 @@
     <a href="#schedule">Schedule</a>
     <a href="#speakers">Speakers</a>
     <a href="#register">Register</a>
+    <a href="#" onclick="openMerchPopup(); return false;" style="color:var(--gold)"><i class="fa-solid fa-shirt"></i> Merch</a>
   </div>
 </nav>
 <!-- HERO -->
@@ -725,6 +726,453 @@
     entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('visible'); } });
   }, { threshold: 0.1 });
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+<!-- ═══════════════════════════════════════════════════
+     MERCH POPUP — T-SHIRT ORDER
+     ═══════════════════════════════════════════════════ -->
+<style>
+  /* ── Overlay & Popup shell ── */
+  .merch-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(2,11,24,0.9);
+    display: none; align-items: center; justify-content: center;
+    padding: 16px;
+    animation: mFadeIn .3s ease;
+  }
+  .merch-overlay.open { display: flex; }
+  @keyframes mFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .merch-popup {
+    background: var(--blue-deep);
+    border: 1px solid rgba(74,168,245,0.25);
+    border-radius: 14px;
+    width: 100%; max-width: 480px;
+    max-height: 92vh;
+    overflow-y: auto;
+    animation: mSlideUp .35s ease;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(74,168,245,0.3) transparent;
+  }
+  @keyframes mSlideUp { from { opacity:0; transform: translateY(28px); } to { opacity:1; transform: translateY(0); } }
+
+  .merch-header {
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 15px 22px 13px;
+    background: var(--blue-deep);
+    border-bottom: 1px solid rgba(74,168,245,0.12);
+  }
+  .merch-header-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.85rem; font-weight: 800; letter-spacing: 0.15em;
+    text-transform: uppercase; color: var(--white);
+  }
+  .merch-header-title span { color: var(--gold); }
+  .merch-close {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: rgba(74,168,245,0.08); border: 1px solid rgba(74,168,245,0.2);
+    color: var(--text-muted); font-size: 16px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .2s, color .2s; line-height: 1;
+  }
+  .merch-close:hover { background: rgba(74,168,245,0.2); color: var(--white); }
+
+  /* ── Screen 1: Product ── */
+  #mScreen1 {}
+
+  .merch-img-wrap {
+    position: relative;
+    background: linear-gradient(160deg, var(--blue-dark), var(--blue-mid));
+    min-height: 240px;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+  }
+  .merch-img-wrap img#mShirtImg {
+    width: 100%; max-height: 300px;
+    object-fit: contain; display: none;
+  }
+  .merch-img-placeholder {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    color: var(--text-muted); padding: 44px; text-align: center;
+  }
+  .merch-img-placeholder i { font-size: 3.5rem; color: var(--blue-mid); }
+  .merch-img-placeholder p { font-size: 0.75rem; line-height: 1.6; }
+
+  .merch-price-block {
+    padding: 20px 22px 0;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    flex-wrap: wrap; gap: 14px;
+  }
+  .merch-price-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.25em;
+    text-transform: uppercase; color: var(--gold); margin-bottom: 4px;
+  }
+  .merch-price-main {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.4rem; font-weight: 900; color: var(--white); line-height: 1;
+  }
+  .merch-price-main sup {
+    font-size: 1rem; font-family: 'Barlow', sans-serif;
+    color: var(--text-muted); font-weight: 400; margin-right: 2px;
+  }
+  .merch-price-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; }
+  .merch-sizes { display: flex; gap: 6px; flex-wrap: wrap; align-self: flex-end; }
+  .merch-size-tag {
+    padding: 4px 12px; border-radius: 3px;
+    border: 1px solid rgba(74,168,245,0.25);
+    color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.07em;
+  }
+
+  .merch-desc {
+    padding: 14px 22px 0;
+    font-size: 0.85rem; color: var(--text-muted); line-height: 1.75;
+  }
+
+  .merch-avail-btn {
+    margin: 20px 22px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    width: calc(100% - 44px);
+    padding: 14px;
+    background: var(--blue-bright); color: var(--white);
+    border: none; border-radius: 6px; cursor: pointer;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.9rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+    transition: background .2s, transform .2s;
+    box-shadow: 0 4px 24px rgba(30,120,212,0.38);
+  }
+  .merch-avail-btn:hover { background: var(--blue-light); transform: translateY(-2px); }
+
+  /* ── Screen 2: Payment Form ── */
+  #mScreen2 { display: none; padding: 22px; }
+
+  .merch-section-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.65rem; font-weight: 800; letter-spacing: 0.22em;
+    text-transform: uppercase; color: var(--gold);
+    padding-bottom: 10px; margin-bottom: 14px;
+    border-bottom: 1px solid rgba(74,168,245,0.1);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .merch-section-label:not(:first-child) { margin-top: 20px; }
+
+  .merch-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .merch-form-grid .mfull { grid-column: 1 / -1; }
+
+  .mf-group { display: flex; flex-direction: column; gap: 5px; }
+  .mf-label {
+    font-size: 0.65rem; font-weight: 700; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .mf-label .mreq { color: #e24b4a; margin-left: 2px; }
+  .mf-label .mopt { color: rgba(138,176,208,0.45); font-weight: 400; margin-left: 3px; }
+  .mf-input, .mf-select {
+    width: 100%; padding: 9px 12px;
+    background: rgba(2,11,24,0.55); border: 1.5px solid rgba(74,168,245,0.2);
+    border-radius: 6px; color: var(--white); font-size: 0.85rem;
+    outline: none; transition: border-color .15s, box-shadow .15s;
+    font-family: 'Barlow', sans-serif;
+  }
+  .mf-input::placeholder { color: rgba(138,176,208,0.35); }
+  .mf-input:focus, .mf-select:focus {
+    border-color: var(--blue-bright);
+    box-shadow: 0 0 0 3px rgba(30,120,212,0.12);
+  }
+  .mf-select { appearance: none; cursor: pointer; }
+  .mf-select option { background: var(--blue-deep); }
+
+  .merch-qty-row { display: flex; align-items: center; gap: 12px; }
+  .merch-qty-btn {
+    width: 34px; height: 34px; border-radius: 6px;
+    background: rgba(30,120,212,0.15); border: 1.5px solid rgba(74,168,245,0.25);
+    color: var(--blue-light); font-size: 1.2rem; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; transition: background .15s; line-height: 1;
+  }
+  .merch-qty-btn:hover { background: rgba(30,120,212,0.3); }
+  .merch-qty-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem; font-weight: 700; color: var(--white);
+    min-width: 28px; text-align: center;
+  }
+
+  .merch-total-row {
+    margin-top: 16px; padding: 12px 18px;
+    background: rgba(17,80,160,0.1); border: 1px solid rgba(74,168,245,0.15);
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .merch-total-label {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .merch-total-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem; font-weight: 900; color: var(--gold);
+  }
+
+  .merch-upload-zone {
+    border: 2px dashed rgba(74,168,245,0.22); border-radius: 8px;
+    padding: 20px; text-align: center; cursor: pointer;
+    background: rgba(2,11,24,0.35);
+    transition: border-color .2s, background .2s;
+  }
+  .merch-upload-zone:hover { border-color: rgba(74,168,245,0.45); background: rgba(17,80,160,0.08); }
+  .merch-upload-zone.mhas-file { border-color: rgba(74,168,245,0.5); background: rgba(17,80,160,0.1); }
+  .merch-upload-zone p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.6; }
+  .merch-upload-fname { font-size: 0.78rem; color: var(--blue-light); margin-top: 6px; font-weight: 600; display: none; }
+  #mReceiptInput { display: none; }
+
+  .merch-btn-row { display: flex; gap: 10px; margin-top: 22px; }
+  .merch-back-btn {
+    padding: 11px 18px; flex-shrink: 0;
+    background: transparent; border: 1.5px solid rgba(74,168,245,0.3);
+    border-radius: 6px; color: var(--text-muted);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: pointer; transition: border-color .2s, color .2s;
+  }
+  .merch-back-btn:hover { border-color: var(--blue-light); color: var(--white); }
+  .merch-submit-btn {
+    flex: 1; padding: 12px;
+    background: var(--gold); color: var(--blue-deepest);
+    border: none; border-radius: 6px;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.9rem; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase;
+    cursor: pointer; transition: background .2s, transform .2s;
+    box-shadow: 0 4px 20px rgba(232,197,106,0.22);
+  }
+  .merch-submit-btn:hover { background: var(--gold-light); transform: translateY(-2px); }
+
+  /* ── Screen 3: Done ── */
+  #mScreen3 { display: none; padding: 44px 28px; text-align: center; }
+  .merch-done-icon {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--blue-mid), var(--blue-bright));
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 6px 24px rgba(30,120,212,0.3);
+  }
+  .merch-done-icon i { font-size: 1.6rem; color: var(--white); }
+  .merch-done-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem; font-weight: 700; color: var(--white); margin-bottom: 10px;
+  }
+  .merch-done-sub { font-size: 0.88rem; color: var(--text-muted); line-height: 1.8; max-width: 340px; margin: 0 auto; }
+  .merch-done-ref {
+    margin-top: 18px; padding: 10px 20px;
+    background: rgba(17,80,160,0.1); border: 1px solid rgba(74,168,245,0.15);
+    border-radius: 6px; display: inline-block;
+    font-size: 0.78rem; color: var(--text-muted);
+  }
+  .merch-done-ref strong { color: var(--gold); }
+</style>
+
+<!-- MERCH OVERLAY -->
+<div class="merch-overlay" id="merchOverlay">
+  <div class="merch-popup" id="merchPopup">
+
+    <!-- Header -->
+    <div class="merch-header">
+      <div class="merch-header-title">IDEN<span>TITY</span> &nbsp;— Camp Merch</div>
+      <button class="merch-close" onclick="closeMerchPopup()">&#10005;</button>
+    </div>
+
+    <!-- ── SCREEN 1: Product Info ── -->
+    <div id="mScreen1">
+
+      <!-- T-Shirt Image -->
+      <div class="merch-img-wrap">
+        <div class="merch-img-placeholder" id="mImgPlaceholder">
+          <i class="fa-solid fa-shirt"></i>
+          <p>Official camp shirt preview</p>
+        </div>
+        <img id="mShirtImg" src="" alt="Camp T-Shirt" />
+      </div>
+
+      <!-- Price & Sizes -->
+      <div class="merch-price-block">
+        <div>
+          <div class="merch-price-label"><i class="fa-solid fa-shirt"></i> Official Camp T-Shirt</div>
+          <div class="merch-price-main"><sup>&#8369;</sup>350</div>
+          <div class="merch-price-sub">Per shirt &nbsp;·&nbsp; Limited stocks only</div>
+        </div>
+        <div class="merch-sizes">
+          <div class="merch-size-tag">XS</div>
+          <div class="merch-size-tag">S</div>
+          <div class="merch-size-tag">M</div>
+          <div class="merch-size-tag">L</div>
+          <div class="merch-size-tag">XL</div>
+          <div class="merch-size-tag">XXL</div>
+        </div>
+      </div>
+
+      <!-- Description -->
+      <div class="merch-desc">
+        Represent <strong style="color:var(--white)">Youth Camp 2026 — IDENTITY</strong> with the official camp shirt. A wearable reminder of who you are in Christ. Order early — sizes run out fast!
+      </div>
+
+      <!-- CTA Button -->
+      <button class="merch-avail-btn" onclick="mGoPayment()">
+        <i class="fa-solid fa-bag-shopping"></i>
+        Avail a T-Shirt
+      </button>
+    </div>
+
+    <!-- ── SCREEN 2: Payment Form ── -->
+    <div id="mScreen2">
+
+      <div class="merch-section-label"><i class="fa-solid fa-user"></i> Personal Details</div>
+      <div class="merch-form-grid">
+        <div class="mf-group">
+          <label class="mf-label">First Name <span class="mreq">*</span></label>
+          <input class="mf-input" type="text" id="mFirstName" placeholder="Your first name" />
+        </div>
+        <div class="mf-group">
+          <label class="mf-label">Last Name <span class="mreq">*</span></label>
+          <input class="mf-input" type="text" id="mLastName" placeholder="Your last name" />
+        </div>
+        <div class="mf-group mfull">
+          <label class="mf-label">Church Name <span class="mreq">*</span></label>
+          <input class="mf-input" type="text" id="mChurch" placeholder="Your church name" />
+        </div>
+        <div class="mf-group mfull">
+          <label class="mf-label">Facebook Link <span class="mopt">(Optional)</span></label>
+          <input class="mf-input" type="url" id="mFacebook" placeholder="https://facebook.com/yourname" />
+        </div>
+      </div>
+
+      <div class="merch-section-label"><i class="fa-solid fa-shirt"></i> Order Details</div>
+      <div class="merch-form-grid">
+        <div class="mf-group">
+          <label class="mf-label">Quantity <span class="mreq">*</span></label>
+          <div class="merch-qty-row">
+            <button class="merch-qty-btn" onclick="mChangeQty(-1)">&#8722;</button>
+            <div class="merch-qty-val" id="mQtyDisplay">1</div>
+            <button class="merch-qty-btn" onclick="mChangeQty(1)">&#43;</button>
+          </div>
+        </div>
+        <div class="mf-group">
+          <label class="mf-label">Size <span class="mreq">*</span></label>
+          <select class="mf-select" id="mSize">
+            <option value="">Select size</option>
+            <option>XS</option><option>S</option><option>M</option>
+            <option>L</option><option>XL</option><option>XXL</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="merch-total-row">
+        <span class="merch-total-label">Total Amount</span>
+        <span class="merch-total-val" id="mTotalVal">&#8369;350</span>
+      </div>
+
+      <div class="merch-section-label" style="margin-top:20px"><i class="fa-solid fa-receipt"></i> Proof of Payment</div>
+      <p style="font-size:0.78rem;color:var(--text-muted);margin-bottom:12px;line-height:1.7">
+        Pay via <strong style="color:var(--white)">GCash</strong> or <strong style="color:var(--white)">Bank Transfer / Deposit</strong>, then attach your receipt below.
+      </p>
+      <div class="merch-upload-zone" id="mUploadZone" onclick="document.getElementById('mReceiptInput').click()">
+        <i class="fa-solid fa-upload" style="font-size:1.6rem;color:var(--text-muted);margin-bottom:8px;display:block"></i>
+        <p id="mUploadLabel">Tap to attach GCash screenshot or bank deposit receipt</p>
+        <p class="merch-upload-fname" id="mUploadedFile"></p>
+      </div>
+      <input type="file" id="mReceiptInput" accept="image/*,.pdf" onchange="mHandleReceipt(this)" />
+
+      <div class="merch-btn-row">
+        <button class="merch-back-btn" onclick="mGoBack()">&#8592; Back</button>
+        <button class="merch-submit-btn" onclick="mSubmit()">Submit Order &#8594;</button>
+      </div>
+    </div>
+
+    <!-- ── SCREEN 3: Done ── -->
+    <div id="mScreen3">
+      <div class="merch-done-icon"><i class="fa-solid fa-check"></i></div>
+      <div class="merch-done-title">Order Submitted!</div>
+      <div class="merch-done-sub">
+        Thank you! Your t-shirt order has been received. We'll confirm it and follow up shortly. See you at camp!
+      </div>
+      <div class="merch-done-ref">Order: <strong id="mDoneRef">—</strong></div>
+      <div style="margin-top:22px">
+        <button onclick="closeMerchPopup()" style="padding:11px 28px;background:var(--blue-bright);color:var(--white);border:none;border-radius:6px;font-family:'Barlow Condensed',sans-serif;font-size:0.85rem;font-weight:800;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:background .2s">Close</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ── MERCH POPUP ──
+  var mQty = 1;
+  var mPrice = 350;
+
+  function openMerchPopup() {
+    document.getElementById('merchOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  // Auto-open on page load after 1.5s
+  window.addEventListener('load', function() {
+    setTimeout(openMerchPopup, 1500);
+  });
+  function closeMerchPopup() {
+    document.getElementById('merchOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  document.getElementById('merchOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeMerchPopup();
+  });
+
+  function mGoPayment() {
+    document.getElementById('mScreen1').style.display = 'none';
+    document.getElementById('mScreen2').style.display = 'block';
+    document.getElementById('mScreen3').style.display = 'none';
+    document.getElementById('merchPopup').scrollTop = 0;
+  }
+  function mGoBack() {
+    document.getElementById('mScreen1').style.display = 'block';
+    document.getElementById('mScreen2').style.display = 'none';
+    document.getElementById('mScreen3').style.display = 'none';
+    document.getElementById('merchPopup').scrollTop = 0;
+  }
+
+  function mChangeQty(delta) {
+    mQty = Math.max(1, mQty + delta);
+    document.getElementById('mQtyDisplay').textContent = mQty;
+    document.getElementById('mTotalVal').innerHTML = '&#8369;' + (mQty * mPrice).toLocaleString();
+  }
+
+  function mHandleReceipt(input) {
+    if (input.files && input.files[0]) {
+      var el = document.getElementById('mUploadedFile');
+      el.textContent = input.files[0].name;
+      el.style.display = 'block';
+      document.getElementById('mUploadLabel').textContent = 'File attached:';
+      document.getElementById('mUploadZone').classList.add('mhas-file');
+    }
+  }
+
+  function mSubmit() {
+    var fn = document.getElementById('mFirstName').value.trim();
+    var ln = document.getElementById('mLastName').value.trim();
+    var church = document.getElementById('mChurch').value.trim();
+    var size = document.getElementById('mSize').value;
+    var receipt = document.getElementById('mReceiptInput');
+    var hasReceipt = receipt && receipt.files && receipt.files.length > 0;
+
+    if (!fn || !ln || !church || !size || !hasReceipt) {
+      alert('Please fill in all required fields and attach your receipt.');
+      return;
+    }
+
+    document.getElementById('mDoneRef').textContent = fn + ' ' + ln + ' — ' + mQty + 'x ' + size;
+    document.getElementById('mScreen2').style.display = 'none';
+    document.getElementById('mScreen3').style.display = 'block';
+    document.getElementById('merchPopup').scrollTop = 0;
+  }
 </script>
 </body>
 </html>
