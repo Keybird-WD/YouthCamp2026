@@ -53,6 +53,23 @@
   .nav-links { display: flex; gap: 32px; }
   .nav-links a { color: var(--blue-pale); text-decoration: none; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; transition: color 0.2s; }
   .nav-links a:hover { color: var(--gold); }
+  .mobile-merch-btn {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,197,106,0.5);
+    background: rgba(232,197,106,0.12);
+    color: var(--gold);
+    text-decoration: none;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
 
   /* ─── HERO ─── */
   #hero {
@@ -387,6 +404,8 @@
   @media (max-width: 768px) {
     nav { padding: 14px 20px; }
     .nav-links { display: none; }
+    .mobile-merch-btn { display: inline-flex; }
+    .nav-logo-text { font-size: 0.82rem; letter-spacing: 0.08em; }
     .about-grid { grid-template-columns: 1fr; }
     .register-grid { grid-template-columns: 1fr; }
     .about-accent { display: none; }
@@ -415,6 +434,9 @@
     <a href="#register">Register</a>
     <a href="#" onclick="openMerchPopup(); return false;" style="color:var(--gold)"><i class="fa-solid fa-shirt"></i> Merch</a>
   </div>
+  <a href="#" class="mobile-merch-btn" onclick="openMerchPopup(); return false;">
+    <i class="fa-solid fa-shirt"></i> Merch
+  </a>
 </nav>
 <!-- HERO -->
 <section id="hero">
@@ -510,8 +532,8 @@
           <div class="about-feature">
             <div class="about-feature-icon"><i class="fa-solid fa-hands-praying"></i></div>
             <div class="about-feature-text">
-              <strong>Spirit-Led Worship &amp; Prayer</strong>
-              <span>Encounter God through powerful times of corporate worship and intercession.</span>
+              <strong>Denying Self</strong>
+              <span>Moving away from worldly definitions of success and identity.</span>
             </div>
           </div>
           <div class="about-feature">
@@ -1106,8 +1128,20 @@
 
 <script>
   // ── MERCH POPUP ──
+  var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyssp3jQoNcEweyKiAiRHAO1mwK0hiaA7I0OVdgIdhMslb6CHwgYVLLJenwMzhm218MkA/exec';
   var mQty = 1;
   var mPrice = 350;
+
+  function postToSheets(payload) {
+    if (!SHEETS_WEB_APP_URL || SHEETS_WEB_APP_URL.indexOf('PASTE_YOUR_') === 0) {
+      return Promise.reject(new Error('Google Sheets Web App URL is not configured.'));
+    }
+    return fetch(SHEETS_WEB_APP_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'},
+      body: JSON.stringify(payload)
+    });
+  }
 
   function openMerchPopup() {
     document.getElementById('merchOverlay').classList.add('open');
@@ -1155,23 +1189,55 @@
     }
   }
 
-  function mSubmit() {
+  async function mSubmit() {
     var fn = document.getElementById('mFirstName').value.trim();
     var ln = document.getElementById('mLastName').value.trim();
     var church = document.getElementById('mChurch').value.trim();
+    var facebook = document.getElementById('mFacebook').value.trim();
     var size = document.getElementById('mSize').value;
     var receipt = document.getElementById('mReceiptInput');
     var hasReceipt = receipt && receipt.files && receipt.files.length > 0;
+    var submitBtn = document.querySelector('.merch-submit-btn');
 
     if (!fn || !ln || !church || !size || !hasReceipt) {
       alert('Please fill in all required fields and attach your receipt.');
       return;
     }
 
-    document.getElementById('mDoneRef').textContent = fn + ' ' + ln + ' — ' + mQty + 'x ' + size;
-    document.getElementById('mScreen2').style.display = 'none';
-    document.getElementById('mScreen3').style.display = 'block';
-    document.getElementById('merchPopup').scrollTop = 0;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Submitting...';
+    }
+
+    var payload = {
+      formType: 'merch_order',
+      targetSheet: 'Merch Orders',
+      submittedAt: new Date().toISOString(),
+      firstName: fn,
+      lastName: ln,
+      churchName: church,
+      facebookLink: facebook,
+      quantity: mQty,
+      size: size,
+      unitPrice: mPrice,
+      totalAmount: mQty * mPrice,
+      receiptFileName: receipt && receipt.files && receipt.files[0] ? receipt.files[0].name : ''
+    };
+
+    try {
+      await postToSheets(payload);
+      document.getElementById('mDoneRef').textContent = fn + ' ' + ln + ' — ' + mQty + 'x ' + size;
+      document.getElementById('mScreen2').style.display = 'none';
+      document.getElementById('mScreen3').style.display = 'block';
+      document.getElementById('merchPopup').scrollTop = 0;
+    } catch (err) {
+      alert('Order submission failed. Please check your Google Apps Script Web App URL and deployment, then try again.');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit Order →';
+      }
+    }
   }
 </script>
 </body>
