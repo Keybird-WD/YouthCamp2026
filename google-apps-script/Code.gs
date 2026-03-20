@@ -4,6 +4,8 @@ const SHEET_NAME_MAP = {
   merch_order: 'Merch Orders'
 };
 
+const RECEIPT_FOLDER_ID = '1P5Br2tmeyfV1qzY452gmMwfRlNnUnyfP';
+
 function doPost(e) {
   try {
     const payload = parsePayload_(e);
@@ -82,13 +84,14 @@ function appendSubmission_(sheet, formType, payload) {
       'amountPaid',
       'paymentDate',
       'accountName',
-      'receiptFileName',
+      'receiptLink',
       'delegatesJson'
     ];
     ensureHeader_(sheet, headers);
 
     const summary = payload.summary || {};
     const payment = payload.payment || {};
+    const receiptLink = saveReceiptToDrive_(payment);
     const row = [
       payload.submittedAt || new Date().toISOString(),
       payload.churchName || '',
@@ -105,7 +108,7 @@ function appendSubmission_(sheet, formType, payload) {
       Number(payment.amountPaid || 0),
       payment.paymentDate || '',
       payment.accountName || '',
-      payment.receiptFileName || '',
+      receiptLink || payment.receiptFileName || '',
       JSON.stringify(payload.delegates || [])
     ];
     sheet.appendRow(row);
@@ -136,13 +139,14 @@ function appendSubmission_(sheet, formType, payload) {
       'amountPaid',
       'paymentDate',
       'accountName',
-      'receiptFileName'
+      'receiptLink'
     ];
     ensureHeader_(sheet, headers);
 
     const personal = payload.personalInfo || {};
     const church = payload.churchInfo || {};
     const payment = payload.payment || {};
+    const receiptLink = saveReceiptToDrive_(payment);
     const row = [
       payload.submittedAt || new Date().toISOString(),
       payload.role || '',
@@ -166,7 +170,7 @@ function appendSubmission_(sheet, formType, payload) {
       Number(payment.amountPaid || 0),
       payment.paymentDate || '',
       payment.accountName || '',
-      payment.receiptFileName || ''
+      receiptLink || payment.receiptFileName || ''
     ];
     sheet.appendRow(row);
     return;
@@ -183,9 +187,11 @@ function appendSubmission_(sheet, formType, payload) {
       'size',
       'unitPrice',
       'totalAmount',
-      'receiptFileName'
+      'receiptLink'
     ];
     ensureHeader_(sheet, headers);
+
+    const receiptLink = saveReceiptToDrive_(payload);
 
     const row = [
       payload.submittedAt || new Date().toISOString(),
@@ -197,7 +203,7 @@ function appendSubmission_(sheet, formType, payload) {
       payload.size || '',
       Number(payload.unitPrice || 0),
       Number(payload.totalAmount || 0),
-      payload.receiptFileName || ''
+      receiptLink || payload.receiptFileName || ''
     ];
     sheet.appendRow(row);
     return;
@@ -218,8 +224,51 @@ function ensureHeader_(sheet, headers) {
   }
 }
 
+function saveReceiptToDrive_(source) {
+  const base64Data = source && source.receiptFileBase64 ? String(source.receiptFileBase64) : '';
+  if (!base64Data) {
+    return '';
+  }
+
+  // Limit base64 payload size to prevent oversized request issues.
+  if (base64Data.length > 5 * 1024 * 1024) {
+    throw new Error('Receipt file is too large. Please upload an image under 3MB.');
+  }
+
+  const mimeType = source && source.receiptMimeType ? String(source.receiptMimeType) : 'application/octet-stream';
+  const fileName = source && source.receiptFileName ? String(source.receiptFileName) : 'receipt';
+
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
+  const folder = getReceiptFolder_();
+  const file = folder.createFile(blob);
+  try {
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (sharingErr) {
+    // Sharing restriction by org policy — file is saved but not public
+    Logger.log('Could not set sharing: ' + sharingErr.message);
+  }
+  return file.getUrl();
+}
+
+function getReceiptFolder_() {
+  const configuredId = PropertiesService.getScriptProperties().getProperty('RECEIPT_FOLDER_ID') || RECEIPT_FOLDER_ID;
+  if (!configuredId || configuredId.indexOf('PASTE_YOUR_') === 0) {
+    return DriveApp.getRootFolder();
+  }
+  return DriveApp.getFolderById(configuredId);
+}
+
 function jsonResponse_(obj) {
   return ContentService
     .createTextOutput(JSON.stringify(obj))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function testDriveAccess() {
+  // This forces full drive write scope authorization
+  const folder = getReceiptFolder_();
+  const testBlob = Utilities.newBlob('test', 'text/plain', 'auth_test.txt');
+  const file = folder.createFile(testBlob);
+  file.setTrashed(true); // immediately deletes the test file
+  Logger.log('Drive write access confirmed: ' + folder.getName());
 }

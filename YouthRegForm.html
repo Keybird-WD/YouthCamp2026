@@ -363,7 +363,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 var delegates = [createDelegate(1)];
 var activeIdx = 0;
-var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyssp3jQoNcEweyKiAiRHAO1mwK0hiaA7I0OVdgIdhMslb6CHwgYVLLJenwMzhm218MkA/exec';
+var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjCvTBx3aJYBVofy9pcM54YoB3KJQQX1tN8M2B2n1bhQ4ZRAyPq_zA4l7Ze_7o9eCuSA/exec';
 
 var ministries = [
   'Music Ministry','Deaf Ministry','Children Ministry','Young People Ministry',
@@ -592,7 +592,28 @@ function postToSheets(payload){
   return fetch(SHEETS_WEB_APP_URL, {
     method: 'POST',
     headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  })
+    .then(function(res){ return res.json(); })
+    .then(function(data){
+      if(!data || data.ok !== true){
+        throw new Error((data && data.error) ? data.error : 'Server rejected submission.');
+      }
+      return data;
+    });
+}
+
+function fileToBase64(file){
+  return new Promise(function(resolve,reject){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var result = (e && e.target && e.target.result) ? String(e.target.result) : '';
+      var commaIdx = result.indexOf(',');
+      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+    };
+    reader.onerror = function(){ reject(new Error('Failed to read receipt file.')); };
+    reader.readAsDataURL(file);
   });
 }
 
@@ -662,38 +683,50 @@ async function goStep5(){
     else if(d.gender === 'Female') ladies++;
   });
 
-  var receiptInput = document.getElementById('receiptFile');
-  var payload = {
-    formType: 'youth_registration',
-    targetSheet: 'Youth Registration',
-    submittedAt: new Date().toISOString(),
-    churchName: (document.getElementById('churchName').value || '').trim(),
-    pastorName: (document.getElementById('pastorName').value || '').trim(),
-    churchAddress: (document.getElementById('churchAddress').value || '').trim(),
-    delegationHeadName: (document.getElementById('delHead').value || '').trim(),
-    delegationHeadEmail: (document.getElementById('delHeadEmail').value || '').trim(),
-    delegates: delegates,
-    summary: {
-      men: men,
-      ladies: ladies,
-      total: delegates.length,
-      totalFee: delegates.length * 200
-    },
-    payment: {
-      method: payMethodEl ? payMethodEl.value : '',
-      referenceNo: (document.getElementById('refNo').value || '').trim(),
-      amountPaid: Number(document.getElementById('amtPaid').value || 0),
-      paymentDate: (document.getElementById('payDate').value || '').trim(),
-      accountName: (document.getElementById('acctName').value || '').trim(),
-      receiptFileName: receiptInput && receiptInput.files && receiptInput.files[0] ? receiptInput.files[0].name : ''
-    }
-  };
-
   try {
+    var receiptInput = document.getElementById('receiptFile');
+    var receiptFile = receiptInput && receiptInput.files && receiptInput.files[0] ? receiptInput.files[0] : null;
+    if(receiptFile && receiptFile.size > 3 * 1024 * 1024){
+      alert('Receipt file is too large. Please upload an image under 3MB.');
+      return;
+    }
+    var receiptBase64 = '';
+    if(receiptFile){
+      receiptBase64 = await fileToBase64(receiptFile);
+    }
+
+    var payload = {
+      formType: 'youth_registration',
+      targetSheet: 'Youth Registration',
+      submittedAt: new Date().toISOString(),
+      churchName: (document.getElementById('churchName').value || '').trim(),
+      pastorName: (document.getElementById('pastorName').value || '').trim(),
+      churchAddress: (document.getElementById('churchAddress').value || '').trim(),
+      delegationHeadName: (document.getElementById('delHead').value || '').trim(),
+      delegationHeadEmail: (document.getElementById('delHeadEmail').value || '').trim(),
+      delegates: delegates,
+      summary: {
+        men: men,
+        ladies: ladies,
+        total: delegates.length,
+        totalFee: delegates.length * 200
+      },
+      payment: {
+        method: payMethodEl ? payMethodEl.value : '',
+        referenceNo: (document.getElementById('refNo').value || '').trim(),
+        amountPaid: Number(document.getElementById('amtPaid').value || 0),
+        paymentDate: (document.getElementById('payDate').value || '').trim(),
+        accountName: (document.getElementById('acctName').value || '').trim(),
+        receiptFileName: receiptFile ? receiptFile.name : '',
+        receiptMimeType: receiptFile ? (receiptFile.type || 'application/octet-stream') : '',
+        receiptFileBase64: receiptBase64
+      }
+    };
+
     await postToSheets(payload);
     setStep(5);
   } catch(err) {
-    alert('Submission failed. Please check your Google Apps Script Web App URL and deployment, then try again.');
+    alert('Submission failed: ' + (err && err.message ? err.message : 'Unknown error'));
   } finally {
     if(submitBtn){
       submitBtn.disabled = false;

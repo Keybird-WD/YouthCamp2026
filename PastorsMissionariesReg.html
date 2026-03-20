@@ -498,7 +498,7 @@ var formData = {role:'', gender:'', civil:'', payMethod:''};
 var TOTAL_STEPS = 5;
 var currentStep = 1;
 var formStepIds = ['sectionRole','sectionPersonal','sectionChurch','sectionPayment'];
-var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyssp3jQoNcEweyKiAiRHAO1mwK0hiaA7I0OVdgIdhMslb6CHwgYVLLJenwMzhm218MkA/exec';
+var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjCvTBx3aJYBVofy9pcM54YoB3KJQQX1tN8M2B2n1bhQ4ZRAyPq_zA4l7Ze_7o9eCuSA/exec';
 
 function postToSheets(payload){
   if(!SHEETS_WEB_APP_URL || SHEETS_WEB_APP_URL.indexOf('PASTE_YOUR_') === 0){
@@ -507,8 +507,28 @@ function postToSheets(payload){
   return fetch(SHEETS_WEB_APP_URL, {
     method: 'POST',
     headers: {'Content-Type': 'text/plain;charset=utf-8'},
-    body: JSON.stringify(payload)
-  }).then(function(r){ return r.json(); });
+    body: JSON.stringify(payload),
+    redirect: 'follow'
+  }).then(function(r){ return r.json(); })
+    .then(function(data){
+      if(!data || data.ok !== true){
+        throw new Error((data && data.error) ? data.error : 'Server rejected submission.');
+      }
+      return data;
+    });
+}
+
+function fileToBase64(file){
+  return new Promise(function(resolve,reject){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var result = (e && e.target && e.target.result) ? String(e.target.result) : '';
+      var commaIdx = result.indexOf(',');
+      resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+    };
+    reader.onerror = function(){ reject(new Error('Failed to read receipt file.')); };
+    reader.readAsDataURL(file);
+  });
 }
 
 // FIX: Use data-role attribute to avoid quote issues in onclick
@@ -629,42 +649,54 @@ async function submitForm(){
     submitBtn.textContent = 'Submitting...';
   }
 
-  var receiptInput = document.getElementById('receiptFile');
-  var payload = {
-    formType: 'pastors_missionaries_registration',
-    targetSheet: 'PastorsMissionaries Registration',
-    submittedAt: new Date().toISOString(),
-    role: formData.role,
-    personalInfo: {
-      firstName: (document.getElementById('firstName').value || '').trim(),
-      middleName: (document.getElementById('middleName').value || '').trim(),
-      lastName: (document.getElementById('lastName').value || '').trim(),
-      gender: formData.gender,
-      birthDate: (document.getElementById('birthDate').value || '').trim(),
-      civilStatus: formData.civil,
-      contactNumber: (document.getElementById('contact').value || '').trim(),
-      email: (document.getElementById('email').value || '').trim(),
-      emergencyContactPerson: (document.getElementById('ecPerson').value || '').trim(),
-      emergencyContactNumber: (document.getElementById('ecNumber').value || '').trim(),
-      homeAddress: ((document.getElementById('homeAddress') || {}).value || '').trim()
-    },
-    churchInfo: {
-      churchName: (document.getElementById('churchName').value || '').trim(),
-      churchAddress: (document.getElementById('churchAddress').value || '').trim(),
-      yearsInMinistry: (document.getElementById('yearsMinistry').value || '').trim(),
-      ministryInterest: (document.getElementById('ministryInterest').value || '').trim()
-    },
-    payment: {
-      method: formData.payMethod,
-      referenceNo: (document.getElementById('refNo').value || '').trim(),
-      amountPaid: Number(document.getElementById('amtPaid').value || 0),
-      paymentDate: (document.getElementById('payDate').value || '').trim(),
-      accountName: (document.getElementById('acctName').value || '').trim(),
-      receiptFileName: receiptInput && receiptInput.files && receiptInput.files[0] ? receiptInput.files[0].name : ''
-    }
-  };
-
   try {
+    var receiptInput = document.getElementById('receiptFile');
+    var receiptFile = receiptInput && receiptInput.files && receiptInput.files[0] ? receiptInput.files[0] : null;
+    if(receiptFile && receiptFile.size > 3 * 1024 * 1024){
+      alert('Receipt file is too large. Please upload an image under 3MB.');
+      return;
+    }
+    var receiptBase64 = '';
+    if(receiptFile){
+      receiptBase64 = await fileToBase64(receiptFile);
+    }
+
+    var payload = {
+      formType: 'pastors_missionaries_registration',
+      targetSheet: 'PastorsMissionaries Registration',
+      submittedAt: new Date().toISOString(),
+      role: formData.role,
+      personalInfo: {
+        firstName: (document.getElementById('firstName').value || '').trim(),
+        middleName: (document.getElementById('middleName').value || '').trim(),
+        lastName: (document.getElementById('lastName').value || '').trim(),
+        gender: formData.gender,
+        birthDate: (document.getElementById('birthDate').value || '').trim(),
+        civilStatus: formData.civil,
+        contactNumber: (document.getElementById('contact').value || '').trim(),
+        email: (document.getElementById('email').value || '').trim(),
+        emergencyContactPerson: (document.getElementById('ecPerson').value || '').trim(),
+        emergencyContactNumber: (document.getElementById('ecNumber').value || '').trim(),
+        homeAddress: ((document.getElementById('homeAddress') || {}).value || '').trim()
+      },
+      churchInfo: {
+        churchName: (document.getElementById('churchName').value || '').trim(),
+        churchAddress: (document.getElementById('churchAddress').value || '').trim(),
+        yearsInMinistry: (document.getElementById('yearsMinistry').value || '').trim(),
+        ministryInterest: (document.getElementById('ministryInterest').value || '').trim()
+      },
+      payment: {
+        method: formData.payMethod,
+        referenceNo: (document.getElementById('refNo').value || '').trim(),
+        amountPaid: Number(document.getElementById('amtPaid').value || 0),
+        paymentDate: (document.getElementById('payDate').value || '').trim(),
+        accountName: (document.getElementById('acctName').value || '').trim(),
+        receiptFileName: receiptFile ? receiptFile.name : '',
+        receiptMimeType: receiptFile ? (receiptFile.type || 'application/octet-stream') : '',
+        receiptFileBase64: receiptBase64
+      }
+    };
+
     await postToSheets(payload);
 
   var fn = document.getElementById('firstName').value.trim();
@@ -681,7 +713,7 @@ async function submitForm(){
   updateProgress();
   window.scrollTo({top:0,behavior:'smooth'});
   } catch(err){
-    alert('Submission failed. Please check your Google Apps Script Web App URL and deployment, then try again.');
+    alert('Submission failed: ' + (err && err.message ? err.message : 'Unknown error'));
   } finally {
     if(submitBtn){
       submitBtn.disabled = false;

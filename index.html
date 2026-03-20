@@ -1128,7 +1128,7 @@
 
 <script>
   // ── MERCH POPUP ──
-  var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyssp3jQoNcEweyKiAiRHAO1mwK0hiaA7I0OVdgIdhMslb6CHwgYVLLJenwMzhm218MkA/exec';
+  var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjCvTBx3aJYBVofy9pcM54YoB3KJQQX1tN8M2B2n1bhQ4ZRAyPq_zA4l7Ze_7o9eCuSA/exec';
   var mQty = 1;
   var mPrice = 350;
 
@@ -1139,7 +1139,28 @@
     return fetch(SHEETS_WEB_APP_URL, {
       method: 'POST',
       headers: {'Content-Type': 'text/plain;charset=utf-8'},
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      redirect: 'follow'
+    })
+      .then(function(res) { return res.json(); })
+      .then(function(data) {
+        if (!data || data.ok !== true) {
+          throw new Error((data && data.error) ? data.error : 'Server rejected submission.');
+        }
+        return data;
+      });
+  }
+
+  function fileToBase64(file) {
+    return new Promise(function(resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function(e) {
+        var result = (e && e.target && e.target.result) ? String(e.target.result) : '';
+        var commaIdx = result.indexOf(',');
+        resolve(commaIdx >= 0 ? result.slice(commaIdx + 1) : result);
+      };
+      reader.onerror = function() { reject(new Error('Failed to read receipt file.')); };
+      reader.readAsDataURL(file);
     });
   }
 
@@ -1209,29 +1230,41 @@
       submitBtn.textContent = 'Submitting...';
     }
 
-    var payload = {
-      formType: 'merch_order',
-      targetSheet: 'Merch Orders',
-      submittedAt: new Date().toISOString(),
-      firstName: fn,
-      lastName: ln,
-      churchName: church,
-      facebookLink: facebook,
-      quantity: mQty,
-      size: size,
-      unitPrice: mPrice,
-      totalAmount: mQty * mPrice,
-      receiptFileName: receipt && receipt.files && receipt.files[0] ? receipt.files[0].name : ''
-    };
-
     try {
+      var receiptFile = receipt && receipt.files && receipt.files[0] ? receipt.files[0] : null;
+      if (receiptFile && receiptFile.size > 3 * 1024 * 1024) {
+        alert('Receipt file is too large. Please upload an image under 3MB.');
+        return;
+      }
+      var receiptBase64 = '';
+      if (receiptFile) {
+        receiptBase64 = await fileToBase64(receiptFile);
+      }
+
+      var payload = {
+        formType: 'merch_order',
+        targetSheet: 'Merch Orders',
+        submittedAt: new Date().toISOString(),
+        firstName: fn,
+        lastName: ln,
+        churchName: church,
+        facebookLink: facebook,
+        quantity: mQty,
+        size: size,
+        unitPrice: mPrice,
+        totalAmount: mQty * mPrice,
+        receiptFileName: receiptFile ? receiptFile.name : '',
+        receiptMimeType: receiptFile ? (receiptFile.type || 'application/octet-stream') : '',
+        receiptFileBase64: receiptBase64
+      };
+
       await postToSheets(payload);
       document.getElementById('mDoneRef').textContent = fn + ' ' + ln + ' — ' + mQty + 'x ' + size;
       document.getElementById('mScreen2').style.display = 'none';
       document.getElementById('mScreen3').style.display = 'block';
       document.getElementById('merchPopup').scrollTop = 0;
     } catch (err) {
-      alert('Order submission failed. Please check your Google Apps Script Web App URL and deployment, then try again.');
+      alert('Order submission failed: ' + (err && err.message ? err.message : 'Unknown error'));
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
