@@ -423,7 +423,8 @@
 <nav>
   <a href="#" class="nav-logo">
     <div class="nav-logo-icon" id="nav-logo-icon">
-      <i class="fa-solid fa-cross"></i>
+      <img src="Logo Image.jpg" alt="Youth Camp 2026 logo" loading="eager" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+      <i class="fa-solid fa-cross" style="display:none;"></i>
     </div>
     <span class="nav-logo-text">Youth Camp 2026</span>
   </a>
@@ -707,12 +708,12 @@
 
   // ─── SPEAKERS ───
   const speakers = [
-    { name: 'Ptr. Mike Bernus',   day: 'Day 1', sessions: [{label:'PM', cls:'pm'}] },
-    { name: 'Ptr. Ryan Fabillar', day: 'Day 2', sessions: [{label:'AM', cls:'am'}] },
+    { name: 'Ptr. Mike Bernus',   day: 'Day 1', sessions: [{label:'PM', cls:'pm'}], image: 'Ptr. Mike Bernus.png' },
+    { name: 'Ptr. Ryan Fabillar', day: 'Day 2', sessions: [{label:'AM', cls:'am'}], image: 'Ptr. Ryan Fabillar.png' },
     { name: 'Ptr. Cyryl Libre',   day: 'Day 2', sessions: [{label:'AM', cls:'am'}] },
-    { name: 'Ptr. Arnie Suan',    day: 'Day 2', sessions: [{label:'PM', cls:'pm'}] },
-    { name: 'Ptr. Elmar Palma',   day: 'Day 3', sessions: [{label:'AM', cls:'am'}] },
-    { name: 'Ptr. Alex Butalid',  day: 'Day 3', sessions: [{label:'AM', cls:'am'}] },
+    { name: 'Ptr. Arnie Suan',    day: 'Day 2', sessions: [{label:'PM', cls:'pm'}], image: 'Ptr. Arnie Suan.png' },
+    { name: 'Ptr. Elmar Palma',   day: 'Day 3', sessions: [{label:'AM', cls:'am'}], image: 'Ptr. Elmar Palma.png' },
+    { name: 'Ptr. Alex Butalid',  day: 'Day 3', sessions: [{label:'AM', cls:'am'}], image: 'Ptr. Alex Butalid.png' },
     { name: 'Ptr. Rico Santiago', day: 'Day 3', sessions: [{label:'PM', cls:'pm'}] },
   ];
 
@@ -721,13 +722,21 @@
     const card = document.createElement('div');
     card.className = 'speaker-card';
     const sessionsHtml = sp.sessions.map(s => `<span class="${s.cls}">${s.label}</span>`).join('');
+    const hasImage = Boolean(sp.image);
     card.innerHTML = `
       <div class="speaker-photo-wrap" id="photo-wrap-${i}">
-        <div class="speaker-photo-placeholder">
-          <i class="fa-solid fa-user"></i>
-          <span>No Photo</span>
-        </div>
-        <div class="speaker-photo-note">Photo to be announced</div>
+        ${hasImage
+          ? `<img src="${sp.image}" alt="${sp.name}" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'; this.nextElementSibling.nextElementSibling.style.display='block';">
+             <div class="speaker-photo-placeholder" style="display:none;">
+               <i class="fa-solid fa-user"></i>
+               <span>No Photo</span>
+             </div>
+             <div class="speaker-photo-note" style="display:none;">Photo unavailable</div>`
+          : `<div class="speaker-photo-placeholder">
+               <i class="fa-solid fa-user"></i>
+               <span>No Photo</span>
+             </div>
+             <div class="speaker-photo-note">Photo to be announced</div>`}
       </div>
       <div class="speaker-body">
         <div class="speaker-name">${sp.name}</div>
@@ -1020,7 +1029,7 @@
       <div class="merch-price-block">
         <div>
           <div class="merch-price-label"><i class="fa-solid fa-shirt"></i> Official Camp T-Shirt</div>
-          <div class="merch-price-main"><sup>&#8369;</sup>350</div>
+          <div class="merch-price-main"><sup>&#8369;</sup>200</div>
           <div class="merch-price-sub">Per shirt &nbsp;·&nbsp; Limited stocks only</div>
         </div>
         <div class="merch-sizes">
@@ -1090,7 +1099,7 @@
 
       <div class="merch-total-row">
         <span class="merch-total-label">Total Amount</span>
-        <span class="merch-total-val" id="mTotalVal">&#8369;350</span>
+        <span class="merch-total-val" id="mTotalVal">&#8369;200</span>
       </div>
 
       <div class="merch-section-label" style="margin-top:20px"><i class="fa-solid fa-receipt"></i> Proof of Payment</div>
@@ -1130,7 +1139,7 @@
   // ── MERCH POPUP ──
   var SHEETS_WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbxjCvTBx3aJYBVofy9pcM54YoB3KJQQX1tN8M2B2n1bhQ4ZRAyPq_zA4l7Ze_7o9eCuSA/exec';
   var mQty = 1;
-  var mPrice = 350;
+  var mPrice = 200;
 
   function postToSheets(payload) {
     if (!SHEETS_WEB_APP_URL || SHEETS_WEB_APP_URL.indexOf('PASTE_YOUR_') === 0) {
